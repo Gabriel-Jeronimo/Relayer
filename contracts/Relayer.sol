@@ -10,25 +10,15 @@ contract Relayer is IRelayer {
     mapping(address => uint256) addressToNonce;
 
     function send(MetaTx calldata _metaTx) external override {
-        console.log("%d", _metaTx.nonce);
-        console.log("%s", _metaTx.signer);
+        require(_metaTx.nonce == addressToNonce[_metaTx.signer] + 1, "Invalid nonce");
 
-        require(addressToNonce[_metaTx.signer] == _metaTx.nonce + 1, "Invalid nonce");
-
-        require(_verify(_metaTx.signer, _metaTx.target, _metaTx.data, _metaTx.nonce, _metaTx.signature));
+        require(_verify(_metaTx.signer, _metaTx.target, _metaTx.data, _metaTx.nonce, _metaTx.signature), "Signature invalid");
     
-        addressToNonce[_metaTx.signer] = _metaTx.nonce;
+        addressToNonce[_metaTx.signer] = _metaTx.nonce; 
     
-        // Actually execute the transaction
+        // Actually execute the transaction to the target contract
         (bool success, ) = _metaTx.target.call(_metaTx.data);
         require(success, "Transaction execution failed");
-    }
-
-    function _verify(address _signer, address _target, bytes memory _data, uint256 _nonce, bytes memory _signature) internal pure returns (bool) {
-        bytes32 messageHash = getMessageHash(_target, _signer, _data, _nonce);
-        bytes32 signedMessage = _getSignedMessage(messageHash);
-
-        return _recoverSignature(signedMessage, _signature) == _signer;
     }
 
     function getMessageHash(
@@ -39,6 +29,14 @@ contract Relayer is IRelayer {
     ) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_target, _signer, _data, _nonce));
     }
+
+    function _verify(address _signer, address _target, bytes memory _data, uint256 _nonce, bytes memory _signature) internal pure returns (bool) {
+        bytes32 messageHash = getMessageHash(_target, _signer, _data, _nonce);
+        address recoveredSignature = _recoverSignature(messageHash, _signature);
+
+        return recoveredSignature == _signer;
+    }
+
 
 
     function _getSignedMessage(bytes32 _messageHash) internal pure returns (bytes32) {
@@ -55,7 +53,6 @@ contract Relayer is IRelayer {
     function _recoverSignature(bytes32 _message, bytes memory _signature) internal pure returns (address) {
         bytes32 signedMessage = _getSignedMessage(_message); 
         (uint8 v, bytes32 r, bytes32 s) = _splitSignature(_signature);
-
         return ecrecover(signedMessage, v, r, s);
     }
 

@@ -6,7 +6,6 @@ interface IRelayer {
     struct MetaTx {
         address signer;
         address target;
-        string message;
         uint256 nonce;
         bytes signature;
         bytes data;

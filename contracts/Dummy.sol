@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract NumberEmitter {
+contract Dummy {
+    constructor() {}
+
     // Event declaration with the number to be emitted
     event NumberReceived(uint256 indexed number);
 
