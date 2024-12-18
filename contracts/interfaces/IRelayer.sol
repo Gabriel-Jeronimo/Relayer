@@ -4,14 +4,14 @@ pragma solidity ^0.8.28;
 
 interface IRelayer {
     struct MetaTx {
-        address signer;
-        address target;
-        uint256 nonce;
-        bytes signature;
+        address from;
+        address to;
         bytes data;
+        uint256 nonce;
+        uint256 deadline;
     }
 
-    function send(MetaTx calldata _metaTx) external;
+    function send(MetaTx calldata _metaTx, bytes calldata signature) external;
 
 }
 

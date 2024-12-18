@@ -45,14 +45,15 @@ describe("Relayer", () => {
     const signature = await txSigner.signMessage(ethers.toBeArray(message));
     console.log("Signed message:", signature);
 
+    await relayer.giveTargetPermission(dummy);
     // Relay the message through the Relayer contract
     const tx = await relayer.send({
-        signer: txSigner,
-        target: dummy,
+        from: txSigner,
+        to: dummy,
         data: functionData,
-        signature: signature,
         nonce: nonce,
-      });
+        deadline: (await ethers.provider.getBlock('latest'))!.timestamp + 100
+      }, signature);
 
     await tx.wait();
 

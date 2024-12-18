@@ -3,38 +3,61 @@ import "./interfaces/IRelayer.sol";
 import "hardhat/console.sol";
 pragma solidity ^0.8.28;
 
-// TODO: Add a deadline to the metaTx
-contract Relayer is IRelayer {
-    constructor() {}
+
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+
+
+contract Relayer is IRelayer, Ownable {
+    address private _owner;
+
+    constructor() Ownable(msg.sender) {}
 
     mapping(address => uint256) addressToNonce;
+    mapping(address => bool) _isTargetPermited;
 
-    function send(MetaTx calldata _metaTx) external override {
-        require(_metaTx.nonce == addressToNonce[_metaTx.signer] + 1, "Invalid nonce");
-
-        require(_verify(_metaTx.signer, _metaTx.target, _metaTx.data, _metaTx.nonce, _metaTx.signature), "Signature invalid");
+    modifier isTargetPermited(address target) {
+        require(_isTargetPermited[target], "Target doesnt have permission");
+        _;
+    }
     
-        addressToNonce[_metaTx.signer] = _metaTx.nonce; 
+    function send(MetaTx calldata _metaTx, bytes calldata _signature) external override {
+        require(_metaTx.nonce == addressToNonce[_metaTx.from] + 1, "Invalid nonce");
+        require(block.timestamp <= _metaTx.deadline, "Meta transaction expired");
+
+        require(_verify(_metaTx.from, _metaTx.to, _metaTx.data, _metaTx.nonce, _signature), "Signature invalid");
+    
+        addressToNonce[_metaTx.from] = _metaTx.nonce; 
     
         // Actually execute the transaction to the target contract
-        (bool success, ) = _metaTx.target.call(_metaTx.data);
+        (bool success, ) = _metaTx.to.call(_metaTx.data);
         require(success, "Transaction execution failed");
     }
 
+    function giveTargetPermission(address target) external  {
+        _isTargetPermited[target] = true;
+    }
+
+    function revokeTargetPermission(address target) external  {
+        _isTargetPermited[target] = false;
+    }
+
+
     function getMessageHash(
-        address _target,
-        address _signer,
+        address _to,
+        address _from,
         bytes memory _data,
         uint256 _nonce
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_target, _signer, _data, _nonce));
+        return keccak256(abi.encodePacked(_to, _from, _data, _nonce));
     }
 
-    function _verify(address _signer, address _target, bytes memory _data, uint256 _nonce, bytes memory _signature) internal pure returns (bool) {
-        bytes32 messageHash = getMessageHash(_target, _signer, _data, _nonce);
+    function _verify(address _from, address _to, bytes memory _data, uint256 _nonce, bytes memory _signature) internal pure returns (bool) {
+        bytes32 messageHash = getMessageHash(_to, _from, _data, _nonce);
         address recoveredSignature = _recoverSignature(messageHash, _signature);
 
-        return recoveredSignature == _signer;
+        return recoveredSignature == _from;
     }
 
 
