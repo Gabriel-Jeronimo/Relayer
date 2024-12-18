@@ -1,6 +1,7 @@
 node_modules
 .env
 TODO.md
+.states
 # Hardhat files
 /cache
 /artifacts
